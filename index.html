@@ -246,12 +246,12 @@ async function pdf(){
 /* ---- alarm ---- */
 let AC=null;
 function ac(){try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();if(AC.state=='suspended')AC.resume()}catch(e){}}
-function beep(f,d,n){if(P.mute||!AC)return;for(let k=0;k<n;k++){try{const o=AC.createOscillator(),g=AC.createGain();o.type='square';o.frequency.value=f;o.connect(g);g.connect(AC.destination);const t=AC.currentTime+k*(d+0.12);g.gain.setValueAtTime(0.25,t);g.gain.exponentialRampToValueAtTime(0.001,t+d);o.start(t);o.stop(t+d)}catch(e){}}}
+function beep(f,d,n,f2,gap){if(P.mute||!AC)return;gap=gap==null?0.12:gap;for(let k=0;k<n;k++){try{const o=AC.createOscillator(),g=AC.createGain();o.type='square';o.frequency.value=(f2&&k%2)?f2:f;o.connect(g);g.connect(AC.destination);const t=AC.currentTime+k*(d+gap);g.gain.setValueAtTime(0.25,t);g.gain.exponentialRampToValueAtTime(0.001,t+d);o.start(t);o.stop(t+d)}catch(e){}}}
 const W=s=>String(s.wr||'').split(',').map(x=>+x.trim()).filter(x=>x>0);
 function chk(e){const s=S.stages[T.si],L=s.time;if(!L)return;const rem=L-e;
- W(s).filter(w=>w<L).forEach(w=>{if(rem<=w&&!T.fired[w]){T.fired[w]=1;T.msg='SISA '+w+' DETIK';T.mt=Date.now();beep(880,0.25,w<=10?2:1)}});
- if(rem<=0&&!T.end){T.end=1;T.msg='WAKTU HABIS!';beep(1200,0.5,3)}
- const show=T.msg&&(T.end||Date.now()-T.mt<3500),pw=$('#pw'),pe=$('#pj'),sm=$('#swm');
+ W(s).filter(w=>w<L).forEach(w=>{if(rem<=w&&!T.fired[w]){T.fired[w]=1;T.msg='SISA '+w+' DETIK';T.mt=Date.now();w<=10?beep(1000,0.3,14,800,0.12):beep(880,0.3,8,null,0.2)}});
+ if(rem<=0&&!T.end){T.end=1;T.msg='WAKTU HABIS!';beep(1400,0.35,20,900,0.1)}
+ const show=T.msg&&(T.end||Date.now()-T.mt<6000),pw=$('#pw'),pe=$('#pj'),sm=$('#swm');
  if(pw)pw.textContent=show?T.msg:'';
  if(pe)pe.classList.toggle('warn',!!show&&!T.end);
  if(sm)sm.textContent=show?T.msg:''}
