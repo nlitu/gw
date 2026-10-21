@@ -88,6 +88,30 @@ tr.dn{background:var(--hl)}td{border-bottom:1px solid var(--bd)}
 #pj button{background:transparent;color:#fff;border:1px solid #f6a623;border-radius:8px}
 #pj button.p{background:#f6a623;color:#2b1c00}
 #pj select{background:#0f2a5e;color:#fff;border-color:#f6a623}
+
+/* === proyektor v2: nama tim jelas + navigasi === */
+button:disabled{opacity:.4;cursor:not-allowed}button:disabled:hover{border-color:var(--bd)}
+#pj{padding:1.5vh 2vw;overflow:hidden;justify-content:center}
+.pin{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;transform-origin:center center}
+#pj .plg{height:9vh;margin-bottom:1vh}
+#pj .pst{font-size:min(2.6vw,4vh);letter-spacing:.35em;opacity:1}
+.pmeta{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:1.4vw;margin-top:1.4vh;font-size:min(2vw,3.2vh);letter-spacing:.22em;text-transform:uppercase;color:#cfe0ff;font-weight:600}
+.pbd{padding:.3em 1em;border-radius:999px;border:2px solid currentColor;font-weight:700;letter-spacing:.16em}
+.pbd.rdy{color:#86efac}.pbd.dn{color:#fde047}
+.pbd.run{color:#fff;background:#dc2626;border-color:#dc2626;animation:pls 1s infinite}
+@keyframes pls{50%{opacity:.55}}
+.pnb{width:min(94vw,1600px);box-sizing:border-box;margin:1.2vh 0 1vh;padding:1.2vh 2vw;border:.4vh solid #f6a623;border-radius:2.4vh;background:rgba(255,255,255,.1);box-shadow:0 0 0 .8vh rgba(246,166,35,.2),0 1.5vh 5vh rgba(0,0,0,.4)}
+#pj .pnm{font-size:min(10vw,16vh);line-height:1.08;overflow-wrap:anywhere;letter-spacing:.01em}
+#pj .ptm{font-size:min(12vw,20vh)}
+#pj .psb{font-size:min(2.8vw,4.2vh)}
+#pj .pwn{font-size:min(4.6vw,6.5vh)}
+#pj .prow{margin-top:1.6vh;gap:1.4vw;flex-wrap:wrap;justify-content:center;align-items:center}
+#pj .prow button{font-size:clamp(14px,min(2vw,3.3vh),32px);padding:.65em 1.5em}
+#pj .prow .pgo{font-size:clamp(16px,min(2.6vw,4.4vh),40px);padding:.6em 2em;font-weight:700;min-width:min(30vw,420px)}
+#pj .prow.sec{margin-top:1vh}
+#pj .prow.sec button{font-size:clamp(12px,min(1.5vw,2.6vh),22px);padding:.5em 1.2em;opacity:.85}
+#pj .prow button:disabled{opacity:.35}
+#pj button.stp{background:#dc2626;border-color:#dc2626;color:#fff}
 </style></head>
 <body><div id="app"></div><div id="pj"></div>
 <script>
@@ -131,6 +155,8 @@ const tn=id=>(S.teams.find(t=>t.id==id)||{}).name||'?';
 const fmt=s=>{const c=Math.round((+s||0)*100),p=n=>String(n).padStart(2,'0');return p(Math.floor(c/6000))+':'+p(Math.floor(c%6000/100))+'.'+p(c%100)};
 const scv=(st,r)=>{const b=(r.w>0&&r.t>0&&st.time>0)?Math.max(0,st.time-r.t)*(st.bo||0):0;return Math.round(((r.w||0)*st.pts+b-(r.p||0))*100)/100};
 const last=i=>i==S.stages.length-1;
+// tim dianggap SUDAH TAMPIL (sudah mulai lalu stop) -> tidak bisa dimulai lagi sebelum di-reset (↺)
+const isLocked=r=>!!(r&&(r.ran||(r.done&&r.t>0)));
 function parts(i){return i==0?S.teams.map(t=>t.id):(S.stages[i].teamIds||[])}
 function order(i){const st=S.stages[i],p=parts(i);let o=(st.order||[]).filter(x=>p.includes(x));p.forEach(x=>{if(!o.includes(x))o.push(x)});st.order=o;return o}
 function cmp(st,a,b){
@@ -177,17 +203,40 @@ function clr(si,ri,id){if(T.id==id&&T.si==si&&T.ri==ri){if(T.on)cancelT();T.end=
 /* ---- layar proyektor ---- */
 let P={open:false,team:''};
 function pj(){const el=$('#pj');if(!P.open){el.style.display='none';return}
- const si=T.on?T.si:S.cur,st=S.stages[si];if(!st){P.open=false;el.style.display='none';return}
- const o=order(si);
- if(!T.on&&!o.includes(P.team)){P.team=o.find(x=>!(st.res[x]&&st.res[x].done))||o[0]||''}
- const id=T.on?T.id:P.team;el.style.display='flex';
- const rr=st.res[id]||{},fin=!T.on&&T.end&&T.id==id,tt=T.on?0:(rr.done?rr.t:0);el.classList.toggle('warn',false);el.classList.toggle('over',!!fin);
- el.innerHTML=`<img class="plg" src="${LOGO}" alt=""><div class="pst">${esc(st.name)}</div>`+(T.on?`<div class="pnm">${esc(tn(id))}</div>`:`<select onchange="P.team=this.value;pj()">${o.map(x=>`<option value="${x}" ${x==id?'selected':''}>${esc(tn(x))}</option>`).join('')}</select>`)+
- `<div class="ptm" id="pt">${fmt(T.on?(Date.now()-T.t0)/1000:tt)}</div><div class="psb">Batas ${fmt(st.time)} · Sisa <span id="ps">${fmt(Math.max(0,st.time-tt))}</span></div><div class="pwn" id="pw">${fin?'WAKTU HABIS!':''}</div>
- <div class="prow"><button class="${T.on?'':'p'}" onclick="pjGo()">${T.on?'STOP (Spasi)':'MULAI (Spasi)'}</button><button onclick="P.mute=!P.mute;ac();if(!P.mute)beep(880,.2,1);pj()">${P.mute?'Suara mati':'Suara aktif'}</button><button onclick="P.open=false;pj()">Tutup (Esc)</button></div>`}
-function pjGo(){if(T.on)return tm(T.si,T.ri,T.id);if(P.team)tm(S.cur,-1,P.team)}
-document.addEventListener('keydown',e=>{if(!P.open)return;if(e.key=='Escape'){P.open=false;pj()}
- else if(e.code=='Space'&&e.target.tagName!='SELECT'){e.preventDefault();pjGo()}});
+  const si=T.on?T.si:S.cur,st=S.stages[si];if(!st){P.open=false;fsOff();el.style.display='none';return}
+  const o=order(si);
+  if(!T.on&&!o.includes(P.team)){P.team=o.find(x=>!isLocked(st.res[x]))||o[0]||''}
+  const id=T.on?T.id:P.team,k=o.indexOf(id);el.style.display='flex';
+  const rr=st.res[id]||{},lk=isLocked(rr),fin=!T.on&&T.end&&T.id==id&&T.si==si,tt=T.on?0:(rr.done?rr.t:0);
+  el.classList.toggle('warn',false);el.classList.toggle('over',!!fin);
+  const nm=tn(id),L=nm.length,fs=L<=6?'min(13vw,21vh)':L<=12?'min(10vw,16vh)':L<=20?'min(6.5vw,11vh)':'min(4.6vw,8vh)';
+  const bd=T.on?'<span class="pbd run">● Sedang tampil</span>':lk?'<span class="pbd dn">✔ Sudah tampil</span>':'<span class="pbd rdy">Siap tampil</span>';
+  const nvOff=T.on||o.length<2;
+  el.innerHTML=`<div class="pin" id="pin"><img class="plg" src="${LOGO}" alt=""><div class="pst">${esc(st.name)}</div>
+  <div class="pmeta"><span>Tim ${k+1} / ${o.length}</span>${bd}</div>
+  <div class="pnb"><div class="pnm" style="font-size:${fs}">${esc(nm)}</div></div>
+  <div class="ptm" id="pt">${fmt(T.on?(Date.now()-T.t0)/1000:tt)}</div><div class="psb">Batas ${fmt(st.time)} · Sisa <span id="ps">${fmt(Math.max(0,st.time-tt))}</span></div><div class="pwn" id="pw">${fin?'WAKTU HABIS!':''}</div>
+  <div class="prow"><button ${nvOff||k<=0?'disabled':''} onclick="pjNav(-1)">◀ Sebelumnya (←)</button><button class="pgo ${T.on?'stp':lk?'':'p'}" ${!T.on&&lk?'disabled':''} onclick="pjGo()">${T.on?'STOP (Spasi)':lk?'SUDAH TAMPIL':'MULAI (Spasi)'}</button><button ${nvOff||k>=o.length-1?'disabled':''} onclick="pjNav(1)">Berikutnya (→) ▶</button></div>
+  <div class="prow sec">${lk&&!T.on?'<button onclick="pjReset()">↺ Reset tim ini</button>':''}<button onclick="P.mute=!P.mute;ac();if(!P.mute)beep(880,.2,1);pj()">${P.mute?'Suara mati':'Suara aktif'}</button><button onclick="closePj()">Tutup (Esc)</button></div></div>`;pjFit()}
+// skala otomatis: seluruh isi proyektor dikecilkan bila tidak muat di layar
+function pjFit(){try{const e=$('#pj'),n=$('#pin');if(!n||!P.open)return;n.style.transform='none';const c=getComputedStyle(e),
+  ah=e.clientHeight-parseFloat(c.paddingTop)-parseFloat(c.paddingBottom),aw=e.clientWidth-parseFloat(c.paddingLeft)-parseFloat(c.paddingRight);
+  if(ah<=0||aw<=0)return;const k=Math.min(1,ah/n.offsetHeight,aw/n.scrollWidth);n.style.transform=k<1?'scale('+k+')':'none'}catch(x){}}
+const pjFitSoon=()=>{pjFit();setTimeout(pjFit,150);setTimeout(pjFit,500)};
+window.addEventListener('resize',pjFitSoon);document.addEventListener('fullscreenchange',pjFitSoon);document.addEventListener('webkitfullscreenchange',pjFitSoon);
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(pjFit);
+function fsOn(){const e=$('#pj');try{const f=e.requestFullscreen||e.webkitRequestFullscreen;if(f){const r=f.call(e);if(r&&r.catch)r.catch(()=>{})}}catch(x){}}
+function fsOff(){try{if(document.fullscreenElement||document.webkitFullscreenElement){const f=document.exitFullscreen||document.webkitExitFullscreen;const r=f.call(document);if(r&&r.catch)r.catch(()=>{})}}catch(x){}}
+function openPj(){P.open=true;ac();pj();fsOn();pjFitSoon()}
+function closePj(){P.open=false;fsOff();pj()}
+function pjGo(){if(T.on)return tm(T.si,T.ri,T.id);if(!P.team)return;tm(S.cur,-1,P.team)}
+function pjNav(d){if(T.on)return;const o=order(S.cur),k=o.indexOf(P.team)+d;if(k<0||k>=o.length)return;P.team=o[k];pj()}
+function pjReset(){const id=P.team;if(!id||T.on)return;if(!confirm('Reset hasil '+tn(id)+'? Skor & waktu tim ini dihapus, lalu bisa dimulai lagi.'))return;clr(S.cur,-1,id)}
+document.addEventListener('keydown',e=>{if(!P.open)return;if(e.key=='Escape'){closePj()}
+  else if(e.code=='Space'){e.preventDefault();if(!e.repeat)pjGo()}
+  else if(e.key=='ArrowRight'){e.preventDefault();pjNav(1)}
+  else if(e.key=='ArrowLeft'){e.preventDefault();pjNav(-1)}});
+document.addEventListener('keyup',e=>{if(P.open&&e.code=='Space')e.preventDefault()});
 /* ---- PDF ---- */
 async function pdf(){
  const J=window.jspdf;
@@ -255,11 +304,12 @@ function chk(e){const s=S.stages[T.si],L=s.time;if(!L)return;const rem=L-e;
  if(pw)pw.textContent=show?T.msg:'';
  if(pe)pe.classList.toggle('warn',!!show&&!T.end);
  if(sm)sm.textContent=show?T.msg:''}
-function stopAt(v){clearInterval(T.iv);T.on=false;P.team=T.id;sf(T.si,T.ri,T.id,'t',v)}
+function stopAt(v){clearInterval(T.iv);T.on=false;P.team=T.id;{const rs=gr(T.si,T.ri);(rs[T.id]||(rs[T.id]={w:0,t:0,p:0,done:false})).ran=true}sf(T.si,T.ri,T.id,'t',v)}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&T.on)tick()});
 /* ---- timer ---- */
 function tm(si,ri,id){
- if(T.on){stopAt(Math.round((Date.now()-T.t0)/10)/100);return}
+ if(T.on){if(T.si==si&&T.ri==ri&&T.id==id)stopAt(Math.round((Date.now()-T.t0)/10)/100);return}
+ if(isLocked(gr(si,ri)[id])){alert(tn(id)+' sudah tampil. Tekan ↺ (reset) dulu jika ingin mengulang.');return}
  T={on:true,t0:Date.now(),si,ri,id,fired:{},msg:'',mt:0,end:0,iv:setInterval(tick,40)};ac();render()}
 function cancelT(){if(T.iv)clearInterval(T.iv);T.on=false;T.end=0}
 function tick(){if(!T.on)return;if(!S.stages[T.si]){cancelT();render();return}const e=(Date.now()-T.t0)/1000,el=$('#sw');chk(e);{const L0=S.stages[T.si].time;if(L0>0&&e>=L0){stopAt(L0);return}}if(el)el.textContent=fmt(e);const L=S.stages[T.si].time,pt=$('#pt');if(pt){pt.textContent=fmt(e);$('#ps').textContent=fmt(Math.max(0,L-e));$('#pj').classList.toggle('over',L>0&&e>L)}
@@ -293,15 +343,15 @@ ${S.stages.map((s,i)=>`<div class="sg"><div><label>Nama stage</label><input valu
 <div class="row"><button class="p" onclick="addS()">+ Tambah stage</button><button onclick="preset()">Isi preset juknis</button><button class="d" onclick="resetAll()">Reset semua data</button></div></div>`}
 
 function rowH(si,ri,id,n,r){const st=S.stages[si];r=r||{};const a=`${si},${ri},'${id}'`,run=T.on&&T.id==id&&T.ri==ri&&T.si==si;
- const over=st.time>0&&r.t>st.time;
+ const over=st.time>0&&r.t>st.time,lk=!run&&isLocked(r);
  return `<tr class="${r.done?'dn':''}"><td>${n}</td><td class="nm">${esc(tn(id))}</td>
 <td><div class="w"><button onclick="ch(${a},'w',-1)">−</button><input type="number" min="0" value="${r.w||0}" onchange="sf(${a},'w',this.value)"><button onclick="ch(${a},'w',1)">+</button></div></td>
 <td><input type="number" min="0" step="0.01" style="width:84px" value="${r.t||0}" onchange="sf(${a},'t',this.value)"> <span class="mu" ${over?'style="color:var(--bad)"':''}>${fmt(r.t||0)}</span></td>
 <td><input type="number" min="0" value="${r.p||0}" onchange="sf(${a},'p',this.value)"></td>
 <td><b>${r.done?scv(st,r):'–'}</b></td>
-<td><button class="${run?'p':''}" onclick="tm(${a})">${run?'Stop':'Mulai'}</button></td>
+<td><button class="${run?'p':''}" ${(!run&&(lk||T.on))?'disabled':''} ${lk?'title="Sudah tampil. Tekan ↺ untuk reset."':''} onclick="tm(${a})">${run?'Stop':lk?'Selesai':'Mulai'}</button></td>
 <td><input type="checkbox" ${r.done?'checked':''} onchange="sf(${a},'done',this.checked)"></td>
-<td>${ri<0?`<button onclick="mv(${si},'${id}',-1)">▲</button><button onclick="mv(${si},'${id}',1)">▼</button> `:''}<button onclick="clr(${a})">↺</button></td></tr>`}
+<td>${ri<0?`<button onclick="mv(${si},'${id}',-1)">▲</button><button onclick="mv(${si},'${id}',1)">▼</button> `:''}<button title="Reset: hapus hasil & bisa dimulai lagi" onclick="clr(${a})">↺</button></td></tr>`}
 const HEAD='<tr><th>#</th><th>Kelas</th><th>Kata benar</th><th>Waktu (dtk)</th><th>Pinalti</th><th>Skor</th><th>Timer</th><th>Selesai</th><th>Urut/Reset</th></tr>';
 
 function rankT(i){const st=S.stages[i],nx=S.stages[i+1],r=rank(i);
@@ -319,7 +369,7 @@ function vPlay(){
  let h=`<div class="tabs">${S.stages.map((s,k)=>`<button class="${k==i?'on':''}" onclick="pick(${k})">${esc(s.name)}</button>`).join('')}</div>`;
  if(T.on)h+=`<div class="tb${(Date.now()-T.t0)/1000>st.time&&st.time?' over':''}" id="swb"><span>${esc(tn(T.id))} · batas ${fmt(S.stages[T.si].time)}</span><span id="swm" style="font-weight:700"></span><b id="sw">${fmt((Date.now()-T.t0)/1000)}</b></div>`;
  if(!o.length)return h+`<div class="c">${i==0?'Belum ada kelas. Tambahkan di tab Pengaturan.':'Belum ada tim di stage ini. Tetapkan tim lolos dari stage sebelumnya.'}</div>`;
- h+=`<div class="c"><div class="row"><h2 style="margin:0">${esc(st.name)}</h2><span class="mu">${o.length} tim · ${st.time} dtk · ${st.pts} poin/kata</span><button onclick="shuffle(${i})">Acak urutan</button><button class="p" onclick="P.open=true;ac();pj()">Layar Proyektor</button></div>
+ h+=`<div class="c"><div class="row"><h2 style="margin:0">${esc(st.name)}</h2><span class="mu">${o.length} tim · ${st.time} dtk · ${st.pts} poin/kata</span><button onclick="shuffle(${i})">Acak urutan</button><button class="p" onclick="openPj()">Layar Proyektor</button></div>
 <p class="mu" style="margin-top:0">Urutan bisa diatur manual dengan ▲▼. Skor = kata benar × poin + bonus waktu (sisa waktu × bonus/detik, hanya jika ada kata benar) − pinalti. Jika skor sama, waktu tercepat menang.</p>
 <div class="sc"><table>${HEAD}${o.map((id,k)=>rowH(i,-1,id,k+1,st.res[id])).join('')}</table></div></div>`;
  h+=`<div class="c"><h2>Klasemen ${esc(st.name)}</h2>${rankT(i)}`;
