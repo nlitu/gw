@@ -25,7 +25,7 @@ textarea{width:100%;box-sizing:border-box;margin:6px 0}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .chip{display:inline-flex;border:1px solid var(--bd);border-radius:8px;overflow:hidden}
 .chip input{width:78px;border:0;border-radius:0}.chip button{border:0;border-radius:0;color:var(--bad)}
-.sg{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1.3fr auto;gap:6px;align-items:end;margin-bottom:8px}
+.sg{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1.3fr 1.7fr auto;gap:6px;align-items:end;margin-bottom:8px}
 .sg label{font-size:.75rem;color:var(--mu);display:block}.sg input{width:100%;box-sizing:border-box}
 .sc{overflow-x:auto}table{border-collapse:collapse;width:100%}
 th,td{padding:6px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}
@@ -143,13 +143,13 @@ async function sbInit(){
   if(!r.ok)throw new Error('HTTP '+r.status);
   const j=await r.json(),d=j[0]&&j[0].data;
   if(d&&(d._ts||0)>(S._ts||0)&&!T.on){const u={tab:S.tab,cur:S.cur};S=d;Object.assign(S,u);
-   S.stages.forEach(s=>{if(s.bo===undefined)s.bo=0.1;if(s.wr===undefined)s.wr='30,10'});
+   S.stages.forEach(s=>{if(s.bo===undefined)s.bo=0.1;if(s.wr===undefined)s.wr='30,10';if(s.kl===undefined)s.kl=''});
    LS=core();sbSet('☁ Data dimuat dari database');render();return}
   if(S.teams.length||S.stages.length)sbPush();else sbSet('☁ Terhubung ke database')}
  catch(e){sbSet('⚠ Database tidak terhubung ('+e.message+') – data tersimpan di perangkat')}}
 let S=load()||{teams:[],stages:[],tab:'set',cur:0,rmOpen:null,rmSel:[]};
 let T={on:false,t0:0,si:0,ri:-1,id:'',iv:null};
-S.stages.forEach(s=>{if(s.bo===undefined)s.bo=0.1;if(s.wr===undefined)s.wr='30,10'});
+S.stages.forEach(s=>{if(s.bo===undefined)s.bo=0.1;if(s.wr===undefined)s.wr='30,10';if(s.kl===undefined)s.kl=''});
 let LS=core(),SBT='☁ Menyambung…',sbT=null;
 const tn=id=>(S.teams.find(t=>t.id==id)||{}).name||'?';
 const fmt=s=>{const c=Math.round((+s||0)*100),p=n=>String(n).padStart(2,'0');return p(Math.floor(c/6000))+':'+p(Math.floor(c%6000/100))+'.'+p(c%100)};
@@ -159,6 +159,18 @@ const last=i=>i==S.stages.length-1;
 const isLocked=r=>!!(r&&(r.ran||(r.done&&r.t>0)));
 function parts(i){return i==0?S.teams.map(t=>t.id):(S.stages[i].teamIds||[])}
 function order(i){const st=S.stages[i],p=parts(i);let o=(st.order||[]).filter(x=>p.includes(x));p.forEach(x=>{if(!o.includes(x))o.push(x)});st.order=o;return o}
+
+/* ---- kloter / urutan pemanggilan ---- */
+function klSizes(st){return String(st.kl||'').split(/[^0-9]+/).map(x=>parseInt(x,10)).filter(x=>x>0)}
+function klGroups(i){const o=order(i),z=klSizes(S.stages[i]),g=[];let p=0;
+ z.forEach(n=>{if(p<o.length){g.push(o.slice(p,p+n));p+=n}});
+ if(p<o.length)g.push(o.slice(p));return g.length?g:[o]}
+function klNo(si,id){if(!klSizes(S.stages[si]).length)return 0;const g=klGroups(si);for(let k=0;k<g.length;k++)if(g[k].includes(id))return k+1;return 0}
+function stN(i){const st=S.stages[i];if(i==0)return S.teams.length;return st.teamIds?st.teamIds.length:(+S.stages[i-1].q||0)}
+function klHint(i){const st=S.stages[i],z=klSizes(st),n=stN(i);
+ if(!z.length)return `<div class="mu" style="margin:-2px 0 12px">Peserta: ${n}. Kloter belum diatur (semua peserta dianggap satu kloter).</div>`;
+ const sum=z.reduce((a,b)=>a+b,0),ok=sum==n;
+ return `<div class="mu" style="margin:-2px 0 12px">Peserta: ${n} · ${z.length} kloter: ${z.join(' + ')} = ${sum} ${ok?'<span class="ok">✔ sesuai</span>':'<span class="tie">⚠ '+(sum<n?'kurang '+(n-sum)+' peserta (sisanya masuk kloter tambahan)':'lebih '+(sum-n)+' (kloter terakhir dipotong)')+'</span>'}</div>`}
 function cmp(st,a,b){
  const A=st.res[a]||{},B=st.res[b]||{};
  if(!!A.done!=!!B.done)return A.done?-1:1;
@@ -183,11 +195,11 @@ function addT(){const v=$('#nt').value.trim();if(!v)return;S.teams.push({id:uid(
 function addB(){$('#bt').value.split('\n').map(x=>x.trim()).filter(Boolean).forEach(n=>S.teams.push({id:uid(),name:n}));render()}
 function rnT(id,v){const t=S.teams.find(x=>x.id==id);if(t&&v.trim())t.name=v.trim();render()}
 function delT(id){if(!confirm('Hapus '+tn(id)+'?'))return;if(T.on&&T.id==id)cancelT();S.teams=S.teams.filter(t=>t.id!=id);S.stages.forEach(s=>{if(s.teamIds)s.teamIds=s.teamIds.filter(x=>x!=id);delete s.res[id]});render()}
-function mkStage(name,time,pts,q,bo=0.1){return{id:uid(),name,time,pts,q,bo,wr:'30,10',order:[],res:{},rm:[],teamIds:null}}
+function mkStage(name,time,pts,q,bo=0.1){return{id:uid(),name,time,pts,q,bo,wr:'30,10',kl:'',order:[],res:{},rm:[],teamIds:null}}
 function addS(){const n=S.stages.length+1;S.stages.push(mkStage('Stage '+n,90,10,0));render()}
 function preset(){if(S.stages.length&&!confirm('Ganti semua stage dengan preset juknis?'))return;
  S.stages=[mkStage('Stage 1 (1 kata)',90,10,24),mkStage('Stage 2 (2 kata)',150,20,12),mkStage('Stage 3 Babak 1 (3 kata)',180,30,6),mkStage('Stage 3 Final',180,30,0)];S.cur=0;render()}
-function es(i,f,v){S.stages[i][f]=(f=='name'||f=='wr')?v:Math.max(0,+v||0);render()}
+function es(i,f,v){S.stages[i][f]=(f=='name'||f=='wr'||f=='kl')?v:Math.max(0,+v||0);render()}
 function delS(i){if(!confirm('Hapus stage ini?'))return;if(T.on)cancelT();S.stages.splice(i,1);S.cur=0;render()}
 function resetAll(){if(confirm('Hapus SEMUA data (kelas, stage, hasil)?')){cancelT();S={teams:[],stages:[],tab:'set',cur:0,rmOpen:null,rmSel:[]};LS=core();sbDel();render()}}
 function go(t){S.tab=t;render()}
@@ -213,7 +225,7 @@ function pj(){const el=$('#pj');if(!P.open){el.style.display='none';return}
   const bd=T.on?'<span class="pbd run">● Sedang tampil</span>':lk?'<span class="pbd dn">✔ Sudah tampil</span>':'<span class="pbd rdy">Siap tampil</span>';
   const nvOff=T.on||o.length<2;
   el.innerHTML=`<div class="pin" id="pin"><img class="plg" src="${LOGO}" alt=""><div class="pst">${esc(st.name)}</div>
-  <div class="pmeta"><span>Tim ${k+1} / ${o.length}</span>${bd}</div>
+  <div class="pmeta"><span>Tim ${k+1} / ${o.length}${klNo(si,id)?' · Kloter '+klNo(si,id):''}</span>${bd}</div>
   <div class="pnb"><div class="pnm" style="font-size:${fs}">${esc(nm)}</div></div>
   <div class="ptm" id="pt">${fmt(T.on?(Date.now()-T.t0)/1000:tt)}</div><div class="psb">Batas ${fmt(st.time)} · Sisa <span id="ps">${fmt(Math.max(0,st.time-tt))}</span></div><div class="pwn" id="pw">${fin?'WAKTU HABIS!':''}</div>
   <div class="prow"><button ${nvOff||k<=0?'disabled':''} onclick="pjNav(-1)">◀ Sebelumnya (←)</button><button class="pgo ${T.on?'stp':lk?'':'p'}" ${!T.on&&lk?'disabled':''} onclick="pjGo()">${T.on?'STOP (Spasi)':lk?'SUDAH TAMPIL':'MULAI (Spasi)'}</button><button ${nvOff||k>=o.length-1?'disabled':''} onclick="pjNav(1)">Berikutnya (→) ▶</button></div>
@@ -287,10 +299,46 @@ async function pdf(){
  const n=d.getNumberOfPages();
  for(let p=1;p<=n;p++){d.setPage(p);try{d.setGState(new d.GState({opacity:.07}));d.addImage(LOGO,'PNG',40,85,130,130.3);d.setGState(new d.GState({opacity:1}))}catch(e){}
  d.setFontSize(8);d.setTextColor(140);d.text('English Guessing Words   |   Halaman '+p+' / '+n,PW/2,290,{align:'center'})}
- const fn='Rekap-English-Guessing-Words.pdf';let dl=null;
+ await dlPdf(d,'Rekap-English-Guessing-Words.pdf');
+}
+async function dlPdf(d,fn){let dl=null;
  try{dl=window.claude?await claude.use('downloads'):null}catch(e){}
  if(!dl){try{d.save(fn)}catch(e){alert('Unduhan tidak tersedia di tampilan ini.')}return}
- try{await dl.save({filename:fn,data:d.output('blob')})}catch(e){if(!e||e.code!='declined')alert('Gagal mengunduh: '+((e&&e.message)||e))}
+ try{await dl.save({filename:fn,data:d.output('blob')})}catch(e){if(!e||e.code!='declined')alert('Gagal mengunduh: '+((e&&e.message)||e))}}
+/* PDF urutan pemanggilan untuk panitia (si = indeks stage, -1 = semua stage) */
+async function pdfUrut(si){
+ const J=window.jspdf;
+ if(!J||!J.jsPDF){alert('Pustaka PDF belum termuat. Periksa koneksi internet lalu muat ulang halaman.');return}
+ const idx=si<0?S.stages.map((_,i)=>i).filter(i=>parts(i).length):(parts(si).length?[si]:[]);
+ if(!idx.length){alert('Belum ada peserta di stage ini.');return}
+ const d=new J.jsPDF({unit:'mm',format:'a4'}),M=16,PW=210,navy=[20,48,107],gold=[245,165,36];
+ d.setFillColor(...navy);d.rect(0,0,PW,38,'F');d.setFillColor(...gold);d.rect(0,38,PW,1.6,'F');
+ d.setFillColor(255,255,255);d.circle(M+16,19,17,'F');d.addImage(LOGO,'PNG',M,3,32,32.1);
+ d.setTextColor(255,255,255);d.setFont('times','bold');d.setFontSize(22);d.text('ENGLISH GUESSING WORDS',M+40,18,{align:'left'});
+ d.setFont('helvetica','normal');d.setFontSize(8.5);d.setTextColor(255,199,102);d.text('URUTAN PEMANGGILAN PESERTA  |  UNTUK PANITIA',M+40,27,{align:'left'});
+ const tgl=new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
+ d.setTextColor(90);d.setFontSize(9);d.text('Dicetak: '+tgl,M,46);
+ const TS={font:'helvetica',fontSize:10.5,cellPadding:3,minCellHeight:10,lineColor:[214,224,242],lineWidth:.2,textColor:[40,45,60],valign:'middle'};
+ const HS={fillColor:navy,textColor:[255,255,255],fontStyle:'bold',halign:'center'};
+ idx.forEach((i,n)=>{
+  const st=S.stages[i],g=klGroups(i),z=klSizes(st),tot=g.reduce((a,x)=>a+x.length,0);
+  let y;if(n==0)y=55;else{d.addPage();y=20}
+  d.setTextColor(...navy);d.setFont('times','bold');d.setFontSize(15);d.text(st.name,M,y);
+  d.setFont('helvetica','normal');d.setFontSize(8.5);d.setTextColor(110);
+  d.text('Peserta '+tot+'  |  '+(z.length?g.length+' kloter ('+g.map(x=>x.length).join(' + ')+')':'Kloter belum diatur')+'  |  Batas '+st.time+' dtk',M,y+5.5);
+  const body=[];let a=0;
+  g.forEach((ids,k)=>{
+   if(z.length)body.push([{content:'KLOTER '+(k+1)+'   |   '+ids.length+' peserta   |   urutan '+(a+1)+(ids.length>1?' – '+(a+ids.length):''),colSpan:4,styles:{fillColor:gold,textColor:navy,fontStyle:'bold',halign:'left',fontSize:10}}]);
+   ids.forEach((id,j)=>body.push([a+j+1,tn(id),'','']));a+=ids.length});
+  d.autoTable({startY:y+9,head:[['No. Urut','Kelas','Hadir','Keterangan']],body,theme:'grid',margin:{left:M,right:M,top:20},styles:TS,headStyles:HS,
+   columnStyles:{0:{halign:'center',cellWidth:24},1:{fontStyle:'bold'},2:{halign:'center',cellWidth:22}},
+   didDrawCell:h=>{if(h.section==='body'&&h.column.index===2&&h.row.raw.length===4){const s=5;
+    d.setDrawColor(70);d.setLineWidth(.35);d.rect(h.cell.x+(h.cell.width-s)/2,h.cell.y+(h.cell.height-s)/2,s,s)}}})});
+ const pn=d.getNumberOfPages();
+ for(let p=1;p<=pn;p++){d.setPage(p);try{d.setGState(new d.GState({opacity:.07}));d.addImage(LOGO,'PNG',40,85,130,130.3);d.setGState(new d.GState({opacity:1}))}catch(e){}
+  d.setFontSize(8);d.setTextColor(140);d.text('English Guessing Words   |   Urutan Pemanggilan   |   Halaman '+p+' / '+pn,PW/2,290,{align:'center'})}
+ const slug=t=>String(t).replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'');
+ await dlPdf(d,si<0?'Urutan-Panggil-Semua-Stage.pdf':'Urutan-Panggil-'+slug(S.stages[si].name)+'.pdf');
 }
 /* ---- alarm ---- */
 let AC=null;
@@ -339,12 +387,13 @@ ${S.stages.map((s,i)=>`<div class="sg"><div><label>Nama stage</label><input valu
 <div><label>Bonus/detik sisa</label><input type="number" step="0.01" value="${s.bo}" onchange="es(${i},'bo',this.value)"></div>
 <div><label>Alarm sisa (dtk)</label><input value="${esc(s.wr||'')}" placeholder="30,10" onchange="es(${i},'wr',this.value)"></div>
 <div><label>${last(i)?'Lolos (final)':'Jml lolos'}</label><input type="number" value="${last(i)?0:s.q}" ${last(i)?'disabled':''} onchange="es(${i},'q',this.value)"></div>
-<button class="d" onclick="delS(${i})">Hapus</button></div>`).join('')}
+<div><label>Kloter (urutan panggil)</label><input value="${esc(s.kl||'')}" placeholder="mis. 4,4,4,4,3,3" onchange="es(${i},'kl',this.value)"></div>
+<button class="d" onclick="delS(${i})">Hapus</button></div>${klHint(i)}`).join('')}
 <div class="row"><button class="p" onclick="addS()">+ Tambah stage</button><button onclick="preset()">Isi preset juknis</button><button class="d" onclick="resetAll()">Reset semua data</button></div></div>`}
 
 function rowH(si,ri,id,n,r){const st=S.stages[si];r=r||{};const a=`${si},${ri},'${id}'`,run=T.on&&T.id==id&&T.ri==ri&&T.si==si;
  const over=st.time>0&&r.t>st.time,lk=!run&&isLocked(r);
- return `<tr class="${r.done?'dn':''}"><td>${n}</td><td class="nm">${esc(tn(id))}</td>
+ return `<tr class="${r.done?'dn':''}"><td>${n}${ri<0&&klNo(si,id)?' <span class="mu">K'+klNo(si,id)+'</span>':''}</td><td class="nm">${esc(tn(id))}</td>
 <td><div class="w"><button onclick="ch(${a},'w',-1)">−</button><input type="number" min="0" value="${r.w||0}" onchange="sf(${a},'w',this.value)"><button onclick="ch(${a},'w',1)">+</button></div></td>
 <td><input type="number" min="0" step="0.01" style="width:84px" value="${r.t||0}" onchange="sf(${a},'t',this.value)"> <span class="mu" ${over?'style="color:var(--bad)"':''}>${fmt(r.t||0)}</span></td>
 <td><input type="number" min="0" value="${r.p||0}" onchange="sf(${a},'p',this.value)"></td>
@@ -369,7 +418,7 @@ function vPlay(){
  let h=`<div class="tabs">${S.stages.map((s,k)=>`<button class="${k==i?'on':''}" onclick="pick(${k})">${esc(s.name)}</button>`).join('')}</div>`;
  if(T.on)h+=`<div class="tb${(Date.now()-T.t0)/1000>st.time&&st.time?' over':''}" id="swb"><span>${esc(tn(T.id))} · batas ${fmt(S.stages[T.si].time)}</span><span id="swm" style="font-weight:700"></span><b id="sw">${fmt((Date.now()-T.t0)/1000)}</b></div>`;
  if(!o.length)return h+`<div class="c">${i==0?'Belum ada kelas. Tambahkan di tab Pengaturan.':'Belum ada tim di stage ini. Tetapkan tim lolos dari stage sebelumnya.'}</div>`;
- h+=`<div class="c"><div class="row"><h2 style="margin:0">${esc(st.name)}</h2><span class="mu">${o.length} tim · ${st.time} dtk · ${st.pts} poin/kata</span><button onclick="shuffle(${i})">Acak urutan</button><button class="p" onclick="openPj()">Layar Proyektor</button></div>
+ h+=`<div class="c"><div class="row"><h2 style="margin:0">${esc(st.name)}</h2><span class="mu">${o.length} tim · ${st.time} dtk · ${st.pts} poin/kata</span><button onclick="shuffle(${i})">Acak urutan</button><button class="p" onclick="openPj()">Layar Proyektor</button><button class="pdfb" onclick="pdfUrut(${i})">Unduh PDF Urutan Panggil</button><button onclick="pdfUrut(-1)">PDF semua stage</button></div>
 <p class="mu" style="margin-top:0">Urutan bisa diatur manual dengan ▲▼. Skor = kata benar × poin + bonus waktu (sisa waktu × bonus/detik, hanya jika ada kata benar) − pinalti. Jika skor sama, waktu tercepat menang.</p>
 <div class="sc"><table>${HEAD}${o.map((id,k)=>rowH(i,-1,id,k+1,st.res[id])).join('')}</table></div></div>`;
  h+=`<div class="c"><h2>Klasemen ${esc(st.name)}</h2>${rankT(i)}`;
